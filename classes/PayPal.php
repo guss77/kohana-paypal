@@ -1,3 +1,7 @@
 <?php defined('SYSPATH') or die('No direct script access.');
 
-class PayPal extends Kohana_PayPal { }
+abstract class PayPal extends Kohana_PayPal { 
+	
+	abstract public function approved($localTrxID, $transcationID, $payerDetails);
+	
+}

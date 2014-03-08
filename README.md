@@ -3,8 +3,6 @@ kohana-paypal
 
 PayPal module for Kohana 3.3
 
-*Please note: this module is currently a work in progress and should not be considered complete and working*
-
 ## Installation
 
 1. Clone into the 'modules' directory of your Kohana installation
@@ -16,4 +14,7 @@ PayPal module for Kohana 3.3
 
 ## Usage
 
-To create a transaction, call `PayPal::payment($amount)` where `$amount` is the transaction amount. Please note that, while not required, you should pass `$amount` as a string, otherwise if the amount is not an integer (i.e. it has a fractional part) then it may be subject to IEEE 754 floating point rounding.
+To create a transaction, call `PayPal::payment($amount)` where `$amount` is the transaction amount.
+Please note that, while not required, you should pass `$amount` as a string, otherwise if the amount is not an integer 
+(i.e. it has a fractional part) then it may be subject to IEEE 754 floating point rounding. To prevent that, the module
+truncates numeric floating point amounts to 2 decimal points, but that operation may still be subject to rounding.

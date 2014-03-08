@@ -19,13 +19,15 @@
 
 /**
  * PayPal API implementation
- * To process payments, create a new instance of this class and call the {@link Kohana_PayPal#payment}
- * method.
+ * To process payments, create a new instance of this class and call the 
+ * {@link Kohana_PayPal#payment} method.
  * @author Oded Arbel <oded@geek.co.il>
  */
 class Kohana_PayPal {
 
 	const CACHE_TOKEN = 'paypal_cached_token';
+	const SESSION_TOKEN = 'paypal_transaction_id';
+	const MAX_SESSION_LENGTH = 3600;
 	
 	var $endpoint;
 	var $clientID;
@@ -33,15 +35,27 @@ class Kohana_PayPal {
 	var $currency;
 	var $cache;
 	
-	public static function payment($amount) {
-		$registration = (new PayPal())->pay($amount);
+	public static function payment($amount, $localTrxID = null) {
+		$impl = new PayPal();
+		$registration = $impl->registerTransaction($amount, $impl->storeLocalTrx($localTrxID));
+		Session::instance()->set(self::SESSION_TOKEN, $registration->id);
+		
 		foreach ($registration->links as $link) {
 			if ($link->rel == 'approval_url') {
-				Request::current()->redirect($link->href);
-				exit;
+				HTTP::redirect($link->href);
+				exit; // shouldn't be needed, redirect throws
 			}
 		}
 		throw new PayPal_Exception_InvalidResponse('Missing approval URL');
+	}
+	
+	public static function execute($payerID, $localTrxID) {
+		$trxid = Session::instance()->get_once(self::SESSION_TOKEN);
+		$impl = new PayPal();
+		$response = $impl->complete($trxid, $payerID);
+		$localTrxID = $impl->retrieveLocalTrx($localTrxID);
+		self::debug("Paypal response for " . $localTrxID, $response);
+		$impl->approved($localTrxID, $response->id, $response->payer->payer_info);
 	}
 	
 	public function __construct() {
@@ -84,7 +98,7 @@ class Kohana_PayPal {
 		return $token;
 	}
 
-	public function pay($amount) {
+	public function registerTransaction($amount, $localTrxID) {
 		$token = $this->authenticate();
 		
 		// paypal like the amount as string, to prevent floating point errors
@@ -92,15 +106,17 @@ class Kohana_PayPal {
 			$amount = sprintf("%0.2f", $amount);
 		
 		$route = Route::get('paypal_response');
-		$base = 'http://giborim.org.il/'; // URL::base(true);
+		$base = URL::base(true);
 		$payment_data = (object)[
 			'intent' => "sale",
 			'redirect_urls' => (object)[
-				'return_url' => $base . $route->uri(['action' => 'complete']),
-				'cancel_url' => $base . $route->uri(['action' => 'cancel']),
+				'return_url' => $base . $route->uri([
+						'action' => 'complete', 'trxid' => $localTrxID]),
+				'cancel_url' => $base . $route->uri([
+						'action' => 'cancel', 'trxid' => $localTrxID]),
 			],
-			"payer" => (object)[
-    			"payment_method" => "paypal",
+			'payer' => (object)[
+    			'payment_method' => 'paypal',
     		],
     		"transactions" => [
     			(object)[
@@ -118,11 +134,30 @@ class Kohana_PayPal {
 	
 	public function complete($trxid, $payerid) {
 		$token = $this->authenticate();
-		
+				
 		$request = $this->genRequest('payments/payment/' . $trxid . '/execute/', 
 				(object)[ 'payer_id' => $payerid ],
 				$token);
 		return $this->call($request);
+	}
+	
+	private function storeLocalTrx($localTrxID) {
+		if (is_null($localTrxID))
+			return $localTrxID;
+		
+		// store the local transaction Id in the cache, so I don't have to pass it
+		// through the client
+		$trxco = sha1(time() . "" . $localTrxID);
+		$this->cache->set($trxco, $localTrxID, self::MAX_SESSION_LENGTH);
+		return $trxco;
+	}
+	
+	private function retrieveLocalTrx($localTrxHash) {
+		if (is_null($localTrxHash))
+			return $localTrxHash;
+		
+		// retrueve the local transaction Id from the cache
+		return $this->cache->get($localTrxHash, null);
 	}
 	
 	protected function genRequest($address, $data = array(), $token = null) {
@@ -135,7 +170,7 @@ class Kohana_PayPal {
 			->headers('Content-Type', is_array($data) ?
 					'application/x-www-form-urlencoded' : 'application/json');
 		
-		Log::debug("Sending message: ", print_r($data,true));
+		self::debug("Sending message: ", print_r($data,true));
 		if (is_array($data))
 			return $req->post($data); // set all fields directly
 		
@@ -148,17 +183,30 @@ class Kohana_PayPal {
 	protected function call(Request $request) {
 		$response = $request->execute();
 		if (!$response->isSuccess()) {
-			Log::error("Error " . $response->status() . " in PayPal call: " . $response->body());			
+			self::debug("Error in PayPal call", $response);			
 			throw new PayPal_Exception_InvalidResponse("Error " . $response->status() . " in PayPal call");
 		}
 		$res = json_decode($response->body());
 		
 		if (isset($res->error)) {
-			Log::error("Error in PayPal call: " . print_r($res, true));			
+			self::error("Error in PayPal call: " . print_r($res, true));			
 			throw new PayPal_Exception_InvalidResponse('PayPal: ' . $res->error_description . ' [' . $res->error . 
 					'] while calling ' . $request->uri());
 		}
 		return $res;
 	}
 	
+	private static function debug($message, $values = null) {
+		$data = "";
+		if ($values) {
+			$values = func_get_args();
+			array_shift($values); 
+			$data = "\n" . print_r($values, true);
+		}
+		Kohana::$log->add(Log::DEBUG, $message . $data);
+	}
+
+	private static function error($message, $values = null) {
+		Kohana::$log->add(Log::ERROR, $message, $values);
+	}
 }

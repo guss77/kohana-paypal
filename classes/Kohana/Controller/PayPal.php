@@ -27,11 +27,12 @@
  */
 class Kohana_Controller_PayPal extends Controller {
 	
-	public function complete() {
-		var_dump($this->request);
+	public function action_complete() {
+		PayPal::execute($this->request->PayerID, $this->request->param('trxid'));
+		echo "OK";
 	}
 
-	public function cancel() {
+	public function action_cancel() {
 		var_dump($this->request);
 	}
 
