@@ -33,20 +33,31 @@ class Kohana_PayPal {
 	var $currency;
 	var $cache;
 	
+	public static function payment($amount) {
+		$registration = (new PayPal())->pay($amount);
+		foreach ($registration->links as $link) {
+			if ($link->rel == 'approval_url') {
+				Request::current()->redirect($link->href);
+				exit;
+			}
+		}
+		throw new PayPal_Exception_InvalidResponse('Missing approval URL');
+	}
+	
 	public function __construct() {
 		$config = Kohana::$config->load('paypal');
 		
 		$this->endpoint = $config['endpoint'];
 		if (!isset($this->endpoint))
-			throw new Exception("Missing Paypal endpoint configuration");
+			throw new PayPal_Exception_Configuration("endpoint");
 		
 		$this->clientID = $config['clientId'];
 		if (!isset($this->clientID))
-			throw new Exception("Missing Paypal client ID configuration");
+			throw new PayPal_Exception_Configuration("client ID");
 		
 		$this->secret = $config['secret'];
 		if (!isset($this->secret))
-			throw new Exception("Missing Paypal client secret configuration");
+			throw new PayPal_Exception_Configuration("client secret");
 		
 		$this->currency = $config['currency'];
 		if (!isset($this->currency))
@@ -72,8 +83,8 @@ class Kohana_PayPal {
 		$this->cache->set(static::CACHE_TOKEN, $token, $token->expires_in);
 		return $token;
 	}
-	
-	public function payment($amount) {
+
+	public function pay($amount) {
 		$token = $this->authenticate();
 		
 		// paypal like the amount as string, to prevent floating point errors
@@ -81,11 +92,12 @@ class Kohana_PayPal {
 			$amount = sprintf("%0.2f", $amount);
 		
 		$route = Route::get('paypal_response');
+		$base = 'http://giborim.org.il/'; // URL::base(true);
 		$payment_data = (object)[
 			'intent' => "sale",
 			'redirect_urls' => (object)[
-				'return_url' => URL::base(true) . $route->uri(['action' => 'complete']),
-				'cancel_url' => URL::base(true) . $route->uri(['action' => 'cancel']),
+				'return_url' => $base . $route->uri(['action' => 'complete']),
+				'cancel_url' => $base . $route->uri(['action' => 'cancel']),
 			],
 			"payer" => (object)[
     			"payment_method" => "paypal",
@@ -128,7 +140,7 @@ class Kohana_PayPal {
 			return $req->post($data); // set all fields directly
 		
 		if (!is_object($data))
-			throw new Exception("Invalid data type in PayPal::genRequest");
+			throw new PayPal_Exception("Invalid data type in PayPal::genRequest");
 		
 		return $req->body(json_encode($data));
 	}
@@ -137,13 +149,13 @@ class Kohana_PayPal {
 		$response = $request->execute();
 		if (!$response->isSuccess()) {
 			Log::error("Error " . $response->status() . " in PayPal call: " . $response->body());			
-			throw new Exception("Error " . $response->status() . " in PayPal call");
+			throw new PayPal_Exception_InvalidResponse("Error " . $response->status() . " in PayPal call");
 		}
 		$res = json_decode($response->body());
 		
 		if (isset($res->error)) {
 			Log::error("Error in PayPal call: " . print_r($res, true));			
-			throw new Exception('PayPal: ' . $res->error_description . ' [' . $res->error . 
+			throw new PayPal_Exception_InvalidResponse('PayPal: ' . $res->error_description . ' [' . $res->error . 
 					'] while calling ' . $request->uri());
 		}
 		return $res;
