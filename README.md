@@ -25,6 +25,9 @@ the approval, the method PayPal::approved() in the application's implementation 
 receives the transaction completion details and can do any processing it needs, and then return a URL to which the 
 user will be redirected.
 
+If the user cancelled the transaction, the PayPal module will call the method PayPal::cancelled in the application's
+implementation, which will also need to return a URL to redirect the user.
+
 An Example flow:
 
 * User clicks on the "buy" button on the page for product "A123".

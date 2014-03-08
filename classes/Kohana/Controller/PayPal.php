@@ -32,7 +32,7 @@ class Kohana_Controller_PayPal extends Controller {
 	}
 
 	public function action_cancel() {
-		var_dump($this->request);
+		PayPal::cancel($this->request->param('trxid'));
 	}
 	
 	public function action_return() {

@@ -60,6 +60,14 @@ class Kohana_PayPal {
 		HTTP::redirect($target);
 	}
 	
+	public static function cancel($localTrxID) {
+		$trxid = Session::instance()->get_once(self::SESSION_TOKEN);
+		$impl = new PayPal();
+		$localTrxID = $impl->retrieveLocalTrx($localTrxID);
+		$impl = new PayPal();
+		HTTP::redirect($impl->cancelled($localTrxID));
+	}
+	
 	public function __construct() {
 		$config = Kohana::$config->load('paypal');
 		

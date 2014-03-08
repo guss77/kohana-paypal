@@ -4,4 +4,5 @@ abstract class PayPal extends Kohana_PayPal {
 	
 	abstract public function approved($localTrxID, $transcationID, $payerDetails, $salesData);
 	
+	abstract public function cancelled($localTrxID);
 }
