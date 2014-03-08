@@ -3,6 +3,8 @@ kohana-paypal
 
 PayPal module for Kohana 3.3
 
+*Please note: this module is currently a work in progress and should not be considered complete and working*
+
 ## Installation
 
 1. Clone into the 'modules' directory of your Kohana installation
