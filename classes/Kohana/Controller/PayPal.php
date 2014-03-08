@@ -29,11 +29,14 @@ class Kohana_Controller_PayPal extends Controller {
 	
 	public function action_complete() {
 		PayPal::execute($this->request->PayerID, $this->request->param('trxid'));
-		echo "OK";
 	}
 
 	public function action_cancel() {
 		var_dump($this->request);
+	}
+	
+	public function action_return() {
+		Kohana::$log->add(Log::DEBUG, "Got an unsolicted call from PayPal: " . print_r($request,true));
 	}
 
 }

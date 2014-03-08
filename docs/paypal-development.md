@@ -197,3 +197,5 @@ call PayPal::execute() with the PayPal transaction details.
 	* execute the transaction with PayPal
 	* call the application's PayPal->approved() implementation with the transaction resource Id,
 	the payer details and the application's provided local transaction Id.
+	* redirect the user to the URL returned by approved();
+

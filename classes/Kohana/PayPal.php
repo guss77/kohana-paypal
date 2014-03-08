@@ -55,8 +55,9 @@ class Kohana_PayPal {
 		$response = $impl->complete($trxid, $payerID);
 		$localTrxID = $impl->retrieveLocalTrx($localTrxID);
 		self::debug("Paypal response for " . $localTrxID, $response);
-		$impl->approved($localTrxID, $response->id, $response->payer->payer_info, 
+		$target = $impl->approved($localTrxID, $response->id, $response->payer->payer_info, 
 			$impl->extractSales($response->transactions));
+		HTTP::redirect($target);
 	}
 	
 	public function __construct() {
