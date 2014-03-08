@@ -55,7 +55,8 @@ class Kohana_PayPal {
 		$response = $impl->complete($trxid, $payerID);
 		$localTrxID = $impl->retrieveLocalTrx($localTrxID);
 		self::debug("Paypal response for " . $localTrxID, $response);
-		$impl->approved($localTrxID, $response->id, $response->payer->payer_info);
+		$impl->approved($localTrxID, $response->id, $response->payer->payer_info, 
+			$impl->extractSales($response->transactions));
 	}
 	
 	public function __construct() {
@@ -141,25 +142,59 @@ class Kohana_PayPal {
 		return $this->call($request);
 	}
 	
+	/**
+	 * Store the local transaction data in the cache, so I don't have to pass it through
+	 * the client
+	 * @param unknown $localTrxID any data
+	 * @return string hash id to retrieve the data later
+	 */
 	private function storeLocalTrx($localTrxID) {
 		if (is_null($localTrxID))
 			return $localTrxID;
 		
-		// store the local transaction Id in the cache, so I don't have to pass it
-		// through the client
 		$trxco = sha1(time() . "" . $localTrxID);
 		$this->cache->set($trxco, $localTrxID, self::MAX_SESSION_LENGTH);
 		return $trxco;
 	}
-	
+
+	/**
+	 * retrieve the local transaction data from the cache.
+	 * @param unknown $localTrxHash hash ID of the transaction data
+	 * @return mixed local transaction data
+	 */
 	private function retrieveLocalTrx($localTrxHash) {
 		if (is_null($localTrxHash))
 			return $localTrxHash;
 		
-		// retrueve the local transaction Id from the cache
 		return $this->cache->get($localTrxHash, null);
 	}
 	
+	/**
+	 * Parse PayPal "transactions" list from execution approval call
+	 * and extract the "sale" objects which contain the refund URLs
+	 * @param object $transactions
+	 */
+	private function extractSales($transactions) {
+		$out = [];
+		
+		foreach ($transactions as $trx) {
+			foreach ($trx->related_resources as $src) {
+				if (isset($src->sale)) {
+					$out[] = $src->sale;
+				}
+			}
+		}
+		
+		return $out;
+	}
+	
+	/**
+	 * Generate a PayPal v1 API request
+	 * @param string $address REST method to call
+	 * @param array|object $data array data to 'form POST' or object data to JSON POst 
+	 * @param string $token OAuth authentication token
+	 * @throws PayPal_Exception
+	 */
 	protected function genRequest($address, $data = array(), $token = null) {
 		$req = (new Request($this->endpoint . '/v1/' . $address))->method('POST')
 			->headers('Accept','application/json')
@@ -180,6 +215,12 @@ class Kohana_PayPal {
 		return $req->body(json_encode($data));
 	}
 	
+	/**
+	 * Execute a PayPal v1 API request
+	 * @param Request $request HTTP request to execute
+	 * @throws PayPal_Exception_InvalidResponse
+	 * @return mixed
+	 */
 	protected function call(Request $request) {
 		$response = $request->execute();
 		if (!$response->isSuccess()) {
