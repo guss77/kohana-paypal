@@ -35,6 +35,14 @@ class Kohana_PayPal {
 	var $currency;
 	var $cache;
 	
+	/**
+	 * Start pyament processing through Paypal.
+	 * This method never returns.
+	 * 
+	 * @param array|string $amount a single transaction's price or a list of transaction prices
+	 * @param unknown $localTrxID application transaciton object
+	 * @throws PayPal_Exception_InvalidResponse
+	 */
 	public static function payment($amount, $localTrxID = null) {
 		$impl = new PayPal();
 		$registration = $impl->registerTransaction($amount, $impl->storeLocalTrx($localTrxID));
@@ -54,7 +62,7 @@ class Kohana_PayPal {
 		$impl = new PayPal();
 		$response = $impl->complete($trxid, $payerID);
 		$localTrxID = $impl->retrieveLocalTrx($localTrxID);
-		self::debug("Paypal response for " . $localTrxID, $response);
+		self::debug("Paypal response for " . serialize($localTrxID), $response);
 		$target = $impl->approved($localTrxID, $response->id, $response->payer->payer_info, 
 			$impl->extractSales($response->transactions));
 		HTTP::redirect($target);
@@ -108,12 +116,30 @@ class Kohana_PayPal {
 		return $token;
 	}
 
+	/**
+	 * Register the transaction with PayPal
+	 * 
+	 * @param array|string $amount a single transaction price or a list transaction prices
+	 * @param unknown $localTrxID application transaciton object
+	 * @return mixed
+	 */
 	public function registerTransaction($amount, $localTrxID) {
 		$token = $this->authenticate();
 		
+		if (!is_array($amount))
+			$amount = [ $amount ];
+		
 		// paypal like the amount as string, to prevent floating point errors
-		if (!is_string($amount))
-			$amount = sprintf("%0.2f", $amount);
+		foreach ($amount as &$a) {
+			if (!is_string($a))
+				$a = sprintf("%0.2f", $a);
+			$a = (object)[
+				"amount" => (object)[
+					"total" => $a,
+					"currency" => $this->currency,
+				]
+			];	
+		}
 		
 		$route = Route::get('paypal_response');
 		$base = URL::base(true);
@@ -125,17 +151,8 @@ class Kohana_PayPal {
 				'cancel_url' => $base . $route->uri([
 						'action' => 'cancel', 'trxid' => $localTrxID]),
 			],
-			'payer' => (object)[
-    			'payment_method' => 'paypal',
-    		],
-    		"transactions" => [
-    			(object)[
-    				"amount" => (object)[
-        				"total" => $amount,
-        				"currency" => $this->currency,
-        			]
-        		]
-        	],
+			'payer' => (object)[ 'payment_method' => 'paypal', ],
+    		"transactions" => $amount,
         ];
 		
 		$request = $this->genRequest('payments/payment', $payment_data, $token);
@@ -161,7 +178,7 @@ class Kohana_PayPal {
 		if (is_null($localTrxID))
 			return $localTrxID;
 		
-		$trxco = sha1(time() . "" . $localTrxID);
+		$trxco = sha1(time() . "" . serialize($localTrxID));
 		$this->cache->set($trxco, $localTrxID, self::MAX_SESSION_LENGTH);
 		return $trxco;
 	}
