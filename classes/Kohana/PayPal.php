@@ -39,7 +39,7 @@ class Kohana_PayPal {
 	 * Start pyament processing through Paypal.
 	 * This method never returns.
 	 * 
-	 * @param array|string $amount a single transaction's price or a list of transaction prices
+	 * @param string $amount a single transaction's price
 	 * @param unknown $localTrxID application transaciton object
 	 * @throws PayPal_Exception_InvalidResponse
 	 */
@@ -119,27 +119,23 @@ class Kohana_PayPal {
 	/**
 	 * Register the transaction with PayPal
 	 * 
-	 * @param array|string $amount a single transaction price or a list transaction prices
+	 * @param string $amount a single transaction price
 	 * @param unknown $localTrxID application transaciton object
 	 * @return mixed
 	 */
 	public function registerTransaction($amount, $localTrxID) {
 		$token = $this->authenticate();
 		
-		if (!is_array($amount))
-			$amount = [ $amount ];
-		
 		// paypal like the amount as string, to prevent floating point errors
-		foreach ($amount as &$a) {
-			if (!is_string($a))
-				$a = sprintf("%0.2f", $a);
-			$a = (object)[
-				"amount" => (object)[
-					"total" => $a,
-					"currency" => $this->currency,
-				]
-			];	
-		}
+		if (!is_string($amount))
+			$amount = sprintf("%0.2f", $amount);
+		
+		$a = (object)[
+			"amount" => (object)[
+				"total" => $amount,
+				"currency" => $this->currency,
+			]
+		];	
 		
 		$route = Route::get('paypal_response');
 		$base = URL::base(true);
@@ -152,7 +148,7 @@ class Kohana_PayPal {
 						'action' => 'cancel', 'trxid' => $localTrxID]),
 			],
 			'payer' => (object)[ 'payment_method' => 'paypal', ],
-    		"transactions" => $amount,
+    		"transactions" => [ $a ],
         ];
 		
 		$request = $this->genRequest('payments/payment', $payment_data, $token);
