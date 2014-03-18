@@ -45,6 +45,7 @@ class Kohana_PayPal {
 	 */
 	public static function payment($amount, $localTrxID = null) {
 		$impl = new PayPal();
+		
 		$registration = $impl->registerTransaction($amount, $impl->storeLocalTrx($localTrxID));
 		Session::instance()->set(self::SESSION_TOKEN, $registration->id);
 		
