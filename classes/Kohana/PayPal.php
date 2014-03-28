@@ -189,7 +189,10 @@ class Kohana_PayPal {
 		if (is_null($localTrxHash))
 			return $localTrxHash;
 		
-		return $this->cache->get($localTrxHash, null);
+		$trxid = $this->cache->get($localTrxHash, false);
+		if ($trxid === false)
+			throw new Exception("Failed to retrieve local data for " . $localTrxHash);
+		return $trxid;
 	}
 	
 	/**
