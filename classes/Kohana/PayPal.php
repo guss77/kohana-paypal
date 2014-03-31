@@ -77,6 +77,11 @@ class Kohana_PayPal {
 		HTTP::redirect($impl->cancelled($localTrxID));
 	}
 	
+	public static function refund($paymentID) {
+		$impl = new PayPal();
+		return $impl->refundPayment($paymentID);
+	}
+	
 	public function __construct() {
 		$config = Kohana::$config->load('paypal');
 		
@@ -165,6 +170,18 @@ class Kohana_PayPal {
 		return $this->call($request);
 	}
 	
+	public function refundPayment($paymentId) {
+		$token = $this->authenticate();
+		
+		// get the refund url
+		$request = $this->genRequest('payments/payment/'.$paymentId, [], $token);
+		$res = $this->call($request);
+		$refundCommand = $this->getRefundURL($res);
+		$refundRes = $this->call($this->genRequest($refundCommand, [], $token));
+		static::debug('Refund response from paypal:', $refundRes);
+		return $refund->id;
+	}
+	
 	/**
 	 * Store the local transaction data in the cache, so I don't have to pass it through
 	 * the client
@@ -215,6 +232,32 @@ class Kohana_PayPal {
 	}
 	
 	/**
+	 * Process a JSON parsed payment object, and locate the refund URL for that payment
+	 * @param object $paymentDetails Payment object
+	 * @return string refund URL
+	 * @throws Exception if the data does not look like a valid payment object, or if the object does not have a refund url
+	 */
+	private function getRefundURL($paymentDetails) {
+		if (!is_object($paymentDetails))
+			throw new Exception("Invalid payment details in getRefundURL");
+		if (!is_array($paymentDetails->transactions))
+			throw new Exception("Invalid transaction list in getRefundURL");
+		foreach ($paymentDetails->transactions as $transact) {
+			if (!is_array($transact->related_resources))
+				throw new Exception("Invalid related resources in getRefundURL");
+			foreach ($transact->related_resources as $res) {
+				if (!is_array($res->sale->links))
+					throw new Exception("Invalid related links in getRefundURL");
+				foreach ($res->sale->links as $link) {
+					if ($link->rel == 'refund')
+						return $link->href;
+				}
+			}
+		}
+		throw new Exception("Missing refund URL in getRefundURL");
+	}
+	
+	/**
 	 * Generate a PayPal v1 API request
 	 * @param string $address REST method to call
 	 * @param array|object $data array data to 'form POST' or object data to JSON POst 
@@ -222,7 +265,14 @@ class Kohana_PayPal {
 	 * @throws PayPal_Exception
 	 */
 	protected function genRequest($address, $data = array(), $token = null) {
-		$req = (new Request($this->endpoint . '/v1/' . $address))->method('POST')
+		// compose request URL
+		if (strstr('https://', $address))
+			$url = $address;
+		else 
+			$url = $this->endpoint . '/v1/' . $address;
+		
+		// create HTTP request
+		$req = (new Request($url))->method('POST')
 			->headers('Accept','application/json')
 			->headers('Accept-Language', 'en_US')
 			->headers('Authorization', is_null($token) ?
