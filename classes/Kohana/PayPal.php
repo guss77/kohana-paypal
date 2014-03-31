@@ -174,12 +174,12 @@ class Kohana_PayPal {
 		$token = $this->authenticate();
 		
 		// get the refund url
-		$request = $this->genRequest('payments/payment/'.$paymentId, [], $token);
+		$request = $this->genRequest('payments/payment/'.$paymentId, null, $token);
 		$res = $this->call($request);
 		$refundCommand = $this->getRefundURL($res);
-		$refundRes = $this->call($this->genRequest($refundCommand, [], $token));
+		$refundRes = $this->call($this->genRequest($refundCommand, (object)[], $token));
 		static::debug('Refund response from paypal:', $refundRes);
-		return $refund->id;
+		return $refundRes->id;
 	}
 	
 	/**
@@ -262,33 +262,45 @@ class Kohana_PayPal {
 	 * @param string $address REST method to call
 	 * @param array|object $data array data to 'form POST' or object data to JSON POst 
 	 * @param string $token OAuth authentication token
+	 * @param boolean $get whether to use GET request, or POST
 	 * @throws PayPal_Exception
 	 */
-	protected function genRequest($address, $data = array(), $token = null) {
+	protected function genRequest($address, $data = array(), $token = null, $get = false) {
 		// compose request URL
-		if (strstr('https://', $address))
+		if (strstr($address, 'https://'))
 			$url = $address;
 		else 
 			$url = $this->endpoint . '/v1/' . $address;
 		
+		$method = (is_null($data) || $get) ? 'GET' : 'POST'; 
+		
 		// create HTTP request
-		$req = (new Request($url))->method('POST')
+		$req = (new Request($url))->method($method)
 			->headers('Accept','application/json')
 			->headers('Accept-Language', 'en_US')
 			->headers('Authorization', is_null($token) ?
 				'Basic ' . base64_encode($this->clientID . ":" . $this->secret) :
 				$token->token_type . ' ' . $token->access_token)
-			->headers('Content-Type', is_array($data) ?
+			->headers('Content-Type', (is_array($data) && $method == 'POST') ?
 					'application/x-www-form-urlencoded' : 'application/json');
 		
-		self::debug("Sending message: ", print_r($data,true));
-		if (is_array($data))
-			return $req->post($data); // set all fields directly
+		self::debug("Sending message to $url: ", print_r($data,true));
+		if (is_null($data)) {
+			self::debug("HTTP: " . $req->render());
+			return $req;
+		}
+		if (is_array($data)) {
+			$req = $req->post($data); // set all fields directly
+			self::debug("HTTP: " . $req->render());
+			return $req; 
+		}
 		
 		if (!is_object($data))
 			throw new PayPal_Exception("Invalid data type in PayPal::genRequest");
 		
-		return $req->body(json_encode($data));
+		$req = $req->body(json_encode($data));
+		self::debug("HTTP: " . $req->render());
+		return $req;
 	}
 	
 	/**
