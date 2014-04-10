@@ -27,7 +27,7 @@ class Kohana_PayPal {
 
 	const CACHE_TOKEN = 'paypal_cached_token';
 	const SESSION_TOKEN = 'paypal_transaction_id';
-	const MAX_SESSION_LENGTH = 3600;
+	const MAX_SESSION_LENGTH = 345600;
 	
 	var $endpoint;
 	var $clientID;
@@ -286,12 +286,12 @@ class Kohana_PayPal {
 		
 		self::debug("Sending message to $url: ", print_r($data,true));
 		if (is_null($data)) {
-			self::debug("HTTP: " . $req->render());
+			//self::debug("HTTP: " . $req->render());
 			return $req;
 		}
 		if (is_array($data)) {
 			$req = $req->post($data); // set all fields directly
-			self::debug("HTTP: " . $req->render());
+			//self::debug("HTTP: " . $req->render());
 			return $req; 
 		}
 		
@@ -299,7 +299,7 @@ class Kohana_PayPal {
 			throw new PayPal_Exception("Invalid data type in PayPal::genRequest");
 		
 		$req = $req->body(json_encode($data));
-		self::debug("HTTP: " . $req->render());
+		//self::debug("HTTP: " . $req->render());
 		return $req;
 	}
 	
@@ -313,7 +313,7 @@ class Kohana_PayPal {
 		$response = $request->execute();
 		if (!$response->isSuccess()) {
 			self::debug("Error in PayPal call", $response);			
-			throw new PayPal_Exception_InvalidResponse("Error " . $response->status() . " in PayPal call");
+			throw new PayPal_Exception_InvalidResponse("Error " . $response->status() . " in PayPal call (". $response->body() .")");
 		}
 		$res = json_decode($response->body());
 		
