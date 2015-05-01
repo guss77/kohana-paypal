@@ -5,7 +5,7 @@ PayPal module for Kohana 3.3
 
 ## Installation
 
-1. Clone into the 'modules' directory of your Kohana installation
+1. Clone into the 'modules' directory of your Kohana installation or run `composer require guss77/kohana-paypal`
 1. Add a reference to load the module in your 'bootstrap.php' file
 1. Copy 'config/paypal.php' to your application's 'config' directory and edit according to your requirements:
   1. Replace the client Id and secret with your real PayPal client ID and secret
