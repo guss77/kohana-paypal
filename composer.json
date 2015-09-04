@@ -1,6 +1,7 @@
 {
 	"name": "guss77/kohana-paypal",
 	"description": "Kohana module to add PayPal payment options to a Kohana application",
+	"version": "1.0.0",
 	"homepage": "http://github.com/guss77/kohana-paypal",
 	"license": "GPL-3.0",
 	"authors": [
@@ -14,5 +15,8 @@
 	"require": {
 		"php": ">=5.4.0"
 	},
-	"minimum-stability": "stable"
+	"minimum-stability": "stable",
+	"autoload": {
+		"classmap": ["init.php"]
+	}
 }
