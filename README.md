@@ -10,7 +10,9 @@ PayPal module for Kohana 3.3
 1. Copy 'config/paypal.php' to your application's 'config' directory and edit according to your requirements:
   1. Replace the client Id and secret with your real PayPal client ID and secret
   1. You may also want to change the default currency
-1. Copy 'classes/PayPal.php' to your application's 'classes' directory and implement all the abstract methods
+1. Copy 'classes/PayPal.php' to your application's 'classes' directory and implement the abstract methods:
+  1. `PayPal::approved()` should handle recording the data for the completed transaction and return a URL to direct the user to - for example, a "thank you for buying" page. See below for details.
+  2. `PayPal::cancelled()` should handle recording that the transaction was cancelled and return a URL to direct the user to - for example, a "sorry that you cancelled your purchase" page. See below for details.
 
 ## Usage
 
