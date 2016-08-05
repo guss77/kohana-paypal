@@ -179,7 +179,7 @@ class Kohana_PayPal {
 		$refundCommand = $this->getRefundURL($res);
 		$refundData = $partialAmount === false ? [] : [ 'amount' => (object)['total' => $partialAmount, 'currency' => $this->currency ] ];
 		$refundRes = $this->call($this->genRequest($refundCommand, (object)$refundData, $token));
-		static::debug('Refund response from paypal:', $refundRes);
+		self::debug('Refund response from paypal:', $refundRes);
 		return $refundRes->id;
 	}
 	
@@ -275,7 +275,7 @@ class Kohana_PayPal {
 		
 		$method = (is_null($data) || $get) ? 'GET' : 'POST'; 
 		
-		Log::debug("PayPal Auth: " . $token->token_type . ' ' . $token->access_token);
+		self::debug("PayPal Auth: " . $token->token_type . ' ' . $token->access_token);
 		
 		// create HTTP request
 		$req = (new Request($url))->method($method)
